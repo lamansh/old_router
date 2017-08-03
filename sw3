@@ -1,0 +1,27 @@
+#!/usr/local/bin/bash
+if [ $# -ne 1 ]
+    then
+    echo "USAGE: 1 -swith to GOLDEN, 2 -swith to Lucky"
+    exit
+fi    
+
+if [[ "$1" -ne 1 && "$1" -ne 2 ]]
+    then
+    echo "USAGE: 1 -swith to GOLDEN, 2 -swith to Lucky"
+    exit
+fi
+    
+case "$1" in
+1) echo "Switching to GOLDEN" 
+    /sbin/ipfw add 00003 fwd 192.168.0.254 ip from 62.244.3.192/26{215-245} to not 192.168.0.0/24, 192.168.15.0/24,62.244.3.192/26 out
+    /sbin/ipfw add 00004 fwd 192.168.0.254 ip from 192.168.0.0/24{2-140} to not 192.168.0.0/24, 192.168.15.0/24,62.244.3.192/26 out
+    /sbin/route change default 85.223.215.177
+    /usr/local/etc/rc.d/squid restart
+    ;;
+2) echo "Switching to Lucky"
+    /sbin/ipfw delete 00003
+    /sbin/ipfw delete 00004
+    /sbin/route change default 62.244.3.201
+    /usr/local/etc/rc.d/squid restart
+    ;;
+ esac

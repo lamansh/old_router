@@ -1,0 +1,29 @@
+#!/usr/bin/perl -w
+my $status=`/sbin/ping -c 1 192.168.200.2`;
+$status =~m/,.(\d).*received/;
+print "$1\n";
+$status = $1;
+$time = localtime time;
+ if ($status == 1) {
+    $line="VPN is up: $time\n";
+#    $command_log=`/bin/echo $line >> /home/sharov/connect_apella.log`;
+    print "$line\n";
+#    print_log($line);
+    
+    } else {
+    $line="VPN is down:$time...restarting\n";
+    print "$line\n";
+    $restart=`/usr/local/etc/rc.d/racoon2_start restart`;
+    $flush=`/usr/local/etc/rc.d/racoon2_start flush`;
+#1    print "$flush\n\n$restart";
+#    print "$restart";
+    print_log($line);
+    } 
+    sub print_log
+    {
+    open (LOG, '>>/home/sharov/connect_apella.log');
+    print LOG "$_[0]\n";
+    close (LOG);
+    }    
+    
+

@@ -1,0 +1,35 @@
+#!/usr/bin/perl 
+open(ARR, '</var/db/dhcpd/dhcpd.leases');
+my @lines = <ARR>;
+my $max = 0;
+my $j =0;
+for ($i = 0; $i < $#lines; $i++) {
+    if ($lines[$i] =~ m/(?<=\d{2}.\d{3}.\d.)\d{3}/){
+print "$&\n";
+	if (unique($&)!= 1) {
+	$numbers[$j] = $&;
+	$j++;
+	}
+    }
+}
+#print @numbers;
+for ($i = 0; $i <$#numbers; $i++) {
+#    print "I:$numbers[$i]\n";
+    if ($numbers[$i] > $max) {
+    $max = $numbers[$i];
+    }    
+}
+
+sub unique {
+    for $number (@numbers){
+	if ($number == $_[0]){
+	return 1;
+	}
+    }
+}
+@numbers = sort {$a <=> $b} @numbers;
+print join(' ', @numbers);
+print "\n";    
+print "Leases size: $#numbers\n";
+print "Last lease is: $max : max number is: 249\n ";
+

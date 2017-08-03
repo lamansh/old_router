@@ -1,0 +1,6 @@
+/usr/local/etc/rc.d squid stop
+squid -z
+chown -R nobody:nobody /usr/local/squid/cache
+chmod 777 /usr/local/squid/cache
+squid -z
+/usr/local/etc/rc.d/squid start

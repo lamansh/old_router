@@ -1,0 +1,837 @@
+#!/bin/sh -
+# Copyright (c) 1996  Poul-Henning Kamp
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+# $FreeBSD: src/etc/rc.firewall,v 1.47.10.1 2005/11/19 06:06:59 ume Exp $
+#
+
+#
+# Setup system for firewall service.
+#
+
+# Suck in the configuration variables.
+if [ -z "${source_rc_confs_defined}" ]; then
+	if [ -r /etc/defaults/rc.conf ]; then
+		. /etc/defaults/rc.conf
+		source_rc_confs
+	elif [ -r /etc/rc.conf ]; then
+		. /etc/rc.conf
+	fi
+fi
+
+############
+# Define the firewall type in /etc/rc.conf.  Valid values are:
+#   open     - will allow anyone in
+#   client   - will try to protect just this machine
+#   simple   - will try to protect a whole network
+#   closed   - totally disables IP services except via lo0 interface
+#   UNKNOWN  - disables the loading of firewall rules.
+#   filename - will load the rules in the given filename (full path required)
+#
+# For ``client'' and ``simple'' the entries below should be customized
+# appropriately.
+
+############
+#
+# If you don't know enough about packet filtering, we suggest that you
+# take time to read this book:
+#
+#	Building Internet Firewalls, 2nd Edition
+#	Brent Chapman and Elizabeth Zwicky
+#
+#	O'Reilly & Associates, Inc
+#	ISBN 1-56592-871-7
+#	http://www.ora.com/
+#	http://www.oreilly.com/catalog/fire2/
+#
+# For a more advanced treatment of Internet Security read:
+#
+#	Firewalls & Internet Security
+#	Repelling the wily hacker
+#	William R. Cheswick, Steven M. Bellowin
+#
+#	Addison-Wesley
+#	ISBN 0-201-63357-4
+#	http://www.awl.com/
+#	http://www.awlonline.com/product/0%2C2627%2C0201633574%2C00.html
+#
+
+setup_loopback () {
+	############
+	# Only in rare cases do you want to change these rules
+	#
+	${fwcmd} add 100 pass all from any to any via lo0
+	${fwcmd} add 200 deny all from any to 127.0.0.0/8
+	${fwcmd} add 300 deny ip from 127.0.0.0/8 to any
+}
+
+if [ -n "${1}" ]; then
+	firewall_type="${1}"
+fi
+
+############
+# Set quiet mode if requested
+#
+case ${firewall_quiet} in
+[Yy][Ee][Ss])
+	fwcmd="/sbin/ipfw -q"
+	;;
+*)
+	fwcmd="/sbin/ipfw"
+	;;
+esac
+
+############
+# Flush out the list before we begin.
+#
+${fwcmd} -f flush
+
+############
+# Network Address Translation.  All packets are passed to natd(8)
+# before they encounter your remaining rules.  The firewall rules
+# will then be run again on each packet after translation by natd
+# starting at the rule number following the divert rule.
+#
+# For ``simple'' firewall type the divert rule should be put to a
+# different place to not interfere with address-checking rules.
+#
+
+##my IP
+mip="62.244.26.202"
+#my Second IP
+msp="62.244.3.252"
+mtp="85.223.215.179"
+
+###ourrules
+## acid + pptp0
+
+#some pipes for uploaders
+##reception
+#######${fwcmd} add 1 pipe 1 ip from any to 192.168.0.25,192.168.0.27,192.168.0.19 192.168.0.15
+#${fwcmd} add 2 pipe 1 ip from 192.168.0.25,192.168.0.27,192.168.0.19 to any out
+#######${fwcmd} pipe 1 config bw 384K
+
+
+#dhcp
+#@${fwcmd} add 2 pipe 2 ip from not 62.244.3.192/26 to 62.244.3.192/26{208,224-244}
+#@${fwcmd} pipe 2 config bw 1024K
+
+#local
+#@${fwcmd} add 3 pipe 3 ip from not 62.244.3.192/26 to 62.244.26.202
+#@${fwcmd} pipe 3 config bw 1024K
+
+#pipe vkontakte
+
+${fwcmd} add 1 pipe 1 ip from any to 87.240.188.252,87.240.188.254,93.186.224.240,93.186.224.241,93.186.224.242,93.186.224.243,87.240.188.249,87.240.188.250
+${fwcmd} add 2 pipe 1 ip from 87.240.188.252,87.240.188.254,93.186.224.240,93.186.224.241,93.186.224.242,93.186.224.243,87.240.188.249,87.240.188.250 to any out
+${fwcmd} pipe 1 config bw 384K
+${fwcmd} add 4 deny ip from any to any 445
+#####1C Terminal 62.244.3.205
+#${fwcmd} add 3 pipe 3 ip from any to 62.244.3.205
+#${fwcmd} add 4 pipe 4 ip from 62.244.3.205 to any out
+#${fwcmd} pipe 3 config bw 2048K
+#${fwcmd} pipe 4 config bw 2048K
+#####wifi2
+
+#######${fwcmd} add 5 pipe 5 ip from any to 192.168.100.0/24{1-2}
+#######${fwcmd} pipe 5 config bw 512K
+#######${fwcmd} add 6 pipe 6 ip from 192.168.100.0/24{1-2} to any out
+#######${fwcmd} pipe 6 config bw 512K
+
+##
+
+
+
+${fwcmd} add 12 skipto 50 ip from 192.168.0.0/24{65-165} to any
+${fwcmd} add 113 skipto 50 ip from any to 192.168.0.0/24{65-165}
+
+${fwcmd} add 14 skipto 50 ip from 192.168.0.3,192.168.0.6,192.168.0.7,192.168.0.12,192.168.0.200,192.168.0.111 to any
+${fwcmd} add 15 skipto 50 ip from any to 192.168.0.3,192.168.0.6,192.168.0.7,192.168.0.12,192.168.0.200,192.168.0.111
+${fwcmd} add 16 skipto 50 ip from 192.168.0.44 to any
+${fwcmd} add 17 skipto 50 ip from any to 192.168.0.44
+${fwcmd} add 18 skipto 50 ip from 192.168.0.14 to any
+${fwcmd} add 19 skipto 50 ip from any to 192.168.0.14
+${fwcmd} add 20 allow all from any to any dst-port 1723
+
+
+##
+
+#hotline direct
+#
+#${fwcmd} add 19 allow tcp from any to 192.168.0.60 2221
+#${fwcmd} add 20 allow tcp from any to 192.168.0.60 2222
+
+#---wifi-rules
+
+${fwcmd} add allow all from 192.168.100.0/24{1-4} to 192.168.0.221
+${fwcmd} add allow all from 192.168.0.221 to 192.168.100.0/24{1-4}
+
+
+${fwcmd} add deny all from 192.168.100.0/24{1-4} to 192.168.0.0/24
+${fwcmd} add deny all from 192.168.0.0/24 to 192.168.100.0/24{1-4}
+
+${fwcmd} add allow ip from 192.168.100.0/24{1-4} to 62.244.3.201 dst-port 587,993
+${fwcmd} add allow ip from 192.168.100.0/24{1-4} to 62.244.3.195 dst-port 110
+${fwcmd} add allow tcp from 192.168.100.0/24{1-4} to 62.244.3.207 dst-port 445
+${fwcmd} add allow tcp from 192.168.100.0/24{1-4} to 62.244.3.207 dst-port 2221
+
+${fwcmd} add fwd 62.244.3.201,587 tcp from 192.168.100.0/24{1-4} to 85.223.215.180 dst-port 587
+${fwcmd} add fwd 62.244.3.201,587 tcp from 192.168.0.0/24 to 85.223.215.180 dst-port 587
+${fwcmd} add fwd 62.244.3.201,993 tcp from 192.168.0.0/24{1-4} to 85.223.215.180 dst-port 993
+${fwcmd} add fwd 62.244.3.201,993 tcp from 62.244.3.192/26 to 85.223.215.180 dst-port 993
+${fwcmd} add fwd 62.244.3.201,389 tcp from 62.244.3.192/26 to 85.223.215.180 dst-port 389
+
+#problem reciving imap mail when post resolved as 85.223.215.180 inside network
+${fwcmd} add allow tcp from 192.168.100.0/24{1-4} to 85.223.215.180 dst-port 110
+${fwcmd} add allow udp from 192.168.100.0/24 to any
+${fwcmd} add allow udp from any to 192.168.100.0/24
+${fwcmd} add allow tcp from 85.223.215.180 to 192.168.100.0/24{1-4}
+
+${fwcmd} add deny all from 192.168.100.0/24{1-4} to 62.244.3.192/26
+
+#---end-wifi-rules
+
+#---port-filter
+#5557 - Dibrova Client Bank
+#5559 - Buhgalteria Client Bank OTP
+#7001 - Network Detection MSN
+#2024,15009 - PFTS Terminal
+#2041 - UX PFTS
+#9010 - temporary port for holding terminal
+#1863 - messenger
+good_tcp_1="37,43,53,80,81,119,443,465,993,995,1194,1196,1723,1863,2041,2221,5190,3389,5557,5559,7001,9010,15009"
+#my_subnets="192.168.0.0/24,192.168.100.0/24"
+my_subnets="192.168.0.0/24"
+my_ext_subnet="62.244.3.192/26"
+my_video_partners="38.108.226.5,38.108.226.15,62.228.245.12,134.129.81.34,81.23.2.190,91.240.208.247,94.124.192.100,93.113.74.99,185.162.134.10,166.23.50.10"
+my_VC="62.244.3.202,62.244.3.205"
+#${fwcmd} add 47 allow icmp from any to 192.168.100.0/24
+#${fwcmd} add 48 allow icmp from 192.168.100.0/24 to any
+
+#bugh OTP allow buhgalteria only otp server connection
+${fwcmd} add 40 deny ip from 192.168.0.0/24{20-23} to not 195.248.93.152,$my_subnets,$my_ext_subnet
+##end
+#
+${fwcmd} add 45 deny ip from $my_subnets to not me not $good_tcp_1 out via $mip
+${fwcmd} add 47 deny tcp from $my_subnets to not me not $good_tcp_2 out via $mip
+
+
+
+#---end-port-filter
+##squid
+
+${fwcmd} add 21 fwd 192.168.0.250,3128 tcp from 192.168.1.0/24 to any 80,8080,8101
+${fwcmd} add 22 fwd 62.244.3.201,587 tcp from 62.244.3.192/26 to 85.223.215.180 587
+#${fwcmd} add 22 fwd 192.168.0.250,3128 tcp from 62.244.3.192/26 to any 80,443,8080,8101
+
+###dont use nat for our net
+#${fwcmd} add 24 deny ip from $my_ext_subnet to not me not $good_tcp_1 out via $mip
+
+${fwcmd} add 26 skipto 51 ip from 62.244.3.192/26 to any 
+
+###who can NAT start>
+
+##who can NAT end>
+
+#PortSentry Ports
+TCP_PORTS="1,11,15,79,119,143,540,635,1080,1524,2000,5742,6667,12345,12346,20034,27665,31337,32771,32772,32773,32774,40421,49724,54320"
+UDP_PORTS="1,7,9,69,161,162,513,635,640,641,700,37444,34555,31335,32770,32771,32772,32773,32774,31337,54321"
+${fwcmd} add allow tcp from any to $mip dst-port $TCP_PORTS
+${fwcmd} add allow udp from any to $mip dst-port $UDP_PORTS
+${fwcmd} add allow tcp from any to $msp dst-port $TCP_PORTS
+${fwcmd} add allow udp from any to $msp dst-port $UDP_PORTS
+${fwcmd} add allow tcp from any to $mtp dst-port $TCP_PORTS
+${fwcmd} add allow udp from any to $mtp dst-port $UDP_PORTS
+
+#
+
+###
+case ${firewall_type} in
+[Oo][Pp][Ee][Nn]|[Cc][Ll][Ii][Ee][Nn][Tt])
+	case ${natd_enable} in
+	[Yy][Ee][Ss])
+		if [ -n "${natd_interface}" ]; then
+			${fwcmd} add 50 divert natd ip4 from any to any via ${natd_interface}
+	
+		fi
+		;;
+	esac
+esac
+
+############
+# If you just configured ipfw in the kernel as a tool to solve network
+# problems or you just want to disallow some particular kinds of traffic
+# then you will want to change the default policy to open.  You can also
+# do this as your only action by setting the firewall_type to ``open''.
+#
+# ${fwcmd} add 65000 pass all from any to any
+
+
+# Prototype setups.
+#VPN racoon2 for backup ofice
+	${fwcmd} add allow all from 31.172.143.15 to any
+	${fwcmd} add allow all from me to 31.172.143.15
+#VPN racoon2 deny other connection
+	${fwcmd} add deny log ip from any to me 500
+
+##1C Cant see anything local start
+#	${fwcmd} add allow tcp from 62.244.3.205 to 192.168.0.250 dst-port 3128
+	${fwcmd} add deny all from 62.244.3.205 to 192.168.0.0/24
+#VideoServer
+	${fwcmd} add deny all from 62.244.3.208 to 192.168.0.0/24
+
+##1C Cant see anything local end
+
+#---ournet to ournet
+	${fwcmd} add allow all from 62.244.3.192/26 to 62.244.3.192/26
+	${fwcmd} add allow all from 192.168.0.0/24 to 62.244.3.192/26
+#---ournet to ournet
+
+
+#---nchcapital.com
+        ${fwcmd} add allow all from 64.144.66.0/24 to any
+
+	${fwcmd} add allow all from any to 64.144.66.0/24
+	${fwcmd} add allow all from 71.244.80.207 to any
+	${fwcmd} add allow all from any to 71.244.80.207	
+        
+	${fwcmd} add allow all from 38.108.226.0/24 to any
+	${fwcmd} add allow all from any to 38.108.226.0/24
+
+	${fwcmd} add allow all from 108.176.45.224/29 to any
+	${fwcmd} add allow all from any to 108.176.45.224/29
+
+#temporary
+	${fwcmd} add allow all from 207.45.174.187  to any
+	${fwcmd} add allow all from any to 207.45.174.187 
+
+	
+#---nchcapital.com end
+	${fwcmd} add allow all from 84.237.220.116  to any
+	${fwcmd} add allow all from any to 84.237.220.116
+#---nch.lv
+
+#---end nchlv
+#---nchadvisors.ru
+        ${fwcmd} add allow all from 78.107.139.0/24 to any
+	${fwcmd} add allow all from any to 78.107.139.0/24
+#---nchadvisors.ru
+        ${fwcmd} add allow all from 78.107.139.0/24 to any
+	${fwcmd} add allow all from any to 78.107.139.0/24
+#---agroterra moskow
+	${fwcmd} add allow all from 62.244.3.192/26{224-244} to 213.33.172.190
+	${fwcmd} add allow all from 213.33.172.190 to 62.244.3.192/26{224-244}
+
+#---
+
+#---icmp start
+#nch,nwserver deny    
+    ${fwcmd} add deny icmp from any to 62.244.3.196
+    ${fwcmd} add allow icmp from any to any 
+#---icmp end
+
+##nch terminal server
+ ${fwcmd} add allow tcp from any to 85.223.215.182
+ ${fwcmd} add allow tcp from 85.223.215.182 to any
+
+## Sfera Agrokon  77.88.209.211
+
+
+###Second channel 85.223.215.179 255.255.255.248
+ ${fwcmd} add allow icmp from any to 85.223.215.179
+ ${fwcmd} add allow tcp from any to 85.223.215.179 dst-port 10022
+ ${fwcmd} add allow ip from 85.223.215.179 to any
+ ${fwcmd} add deny tcp from any to 85.223.215.179 dst-port 21
+ ${fwcmd} add deny tcp from any to 85.223.215.179 dst-port 25
+ ${fwcmd} add deny tcp from any to 85.223.215.179 dst-port 80
+ ${fwcmd} add deny tcp from any to 85.223.215.179 dst-port 110
+ ${fwcmd} add deny tcp from any to 85.223.215.179 dst-port 111
+ ${fwcmd} add deny tcp from any to 85.223.215.179 dst-port 587
+ ${fwcmd} add deny tcp from any to 85.223.215.179 dst-port 1099
+ ${fwcmd} add deny tcp from any to 85.223.215.179 dst-port 1950
+ ${fwcmd} add deny tcp from any to 85.223.215.179 dst-port 3128
+#
+
+#second channel post
+ ${fwcmd} add allow ip from any to 85.223.215.180
+ ${fwcmd} add allow ip from 85.223.215.180 to any
+ ${fwcmd} add allow ip from 85.223.215.180 to 62.244.3.192/26
+ ${fwcmd} add allow ip from 62.244.3.192/26 to 85.223.215.180
+#
+
+## 209
+# ${fwcmd} add allow ip from any to 62.244.3.209
+# ${fwcmd} add allow ip from 62.244.3.209 to any
+#
+
+##liga 210
+ ${fwcmd} add allow ip from any to 62.244.3.210 dst-port 30583
+# ${fwcmd} add allow ip from any to 62.244.3.210
+ ${fwcmd} add allow ip from 62.244.3.210 to any
+#
+
+
+##--- NEW CONFERENCE HALL
+${fwcmd} add allow ip from $my_video_partners to $my_VC
+${fwcmd} add allow ip from $my_VC to any
+${fwcmd} add deny ip from any to $my_VC
+##
+##--- MAIN VIDEOCONFERENCE HALL
+	${fwcmd} add deny tcp from any to 62.244.3.202 dst-port 21
+	${fwcmd} add deny tcp from any to 62.244.3.202 dst-port 23
+	${fwcmd} add deny tcp from any to 62.244.3.202 dst-port 24
+	${fwcmd} add deny tcp from any to 62.244.3.202 dst-port 80
+	${fwcmd} add deny tcp from any to 62.244.3.202 dst-port 443	
+	${fwcmd} add deny tcp from any to 62.244.3.202 dst-port 990
+	${fwcmd} add deny tcp from any to 62.244.3.202 dst-port 992
+	${fwcmd} add deny tcp from any to 62.244.3.202 dst-port 993
+
+        ${fwcmd} add allow ip from any to 62.244.3.202
+        ${fwcmd} add allow ip from 62.244.3.202 to any
+##
+
+#2 Little Conference Hall
+	${fwcmd} add deny tcp from any to 62.244.3.203 dst-port 21
+	${fwcmd} add deny tcp from any to 62.244.3.203 dst-port 23
+	${fwcmd} add deny tcp from any to 62.244.3.203 dst-port 24
+	${fwcmd} add deny tcp from any to 62.244.3.203 dst-port 80
+	${fwcmd} add deny tcp from any to 62.244.3.203 dst-port 443	
+	${fwcmd} add deny tcp from any to 62.244.3.203 dst-port 990
+	${fwcmd} add deny tcp from any to 62.244.3.203 dst-port 992
+	${fwcmd} add deny tcp from any to 62.244.3.203 dst-port 993
+
+        ${fwcmd} add allow ip from any to 62.244.3.203
+        ${fwcmd} add allow ip from 62.244.3.203 to any
+	
+#--- videoconference end		
+
+
+
+#--- 1cterm start
+#	${fwcmd} add allow tcp from any to 62.244.3.205 dst-port 1723
+#	${fwcmd} add allow all from 194.88.207.138 to 62.244.3.205 #server cedit
+#	${fwcmd} add allow all from 62.244.3.205 to 194.88.207.138 #server cedit
+#	${fwcmd} add allow tcp from any to 77.88.209.211
+#	${fwcmd} add allow tcp from 77.88.209.211 to any
+#	${fwcmd} add allow tcp from any to 62.244.3.205 dst-port 5000-5010
+#	${fwcmd} add allow tcp from any to 62.244.3.205 dst-port 21
+#	${fwcmd} add allow tcp from any to 62.244.3.205 dst-port 3389
+#	${fwcmd} add allow tcp from 62.244.3.205 to any dst-port 1723
+#	${fwcmd} add allow ip from 46.182.86.70 to 62.244.3.205
+#	${fwcmd} add allow ip from 62.244.3.205 to 46.182.86.70 		
+#-Videoserver
+	${fwcmd} add allow icmp from any to 62.244.3.208
+	${fwcmd} add allow icmp from 62.244.3.208 to any
+	${fwcmd} add allow tcp from any to 62.244.3.208 dst-port 1723
+	${fwcmd} add allow tcp from any to 62.244.3.208 dst-port 47
+	${fwcmd} add allow tcp from any to 62.244.3.208 dst-port 443
+	${fwcmd} add allow tcp from 62.244.3.208 to any
+	${fwcmd} add deny tcp from any to 62.244.3.208
+
+#some IP from Savinkov
+#	${fwcmd} add allow tcp from 62.244.3.205 to 195.242.179.102 dst-port 443 keep-state
+#	${fwcmd} add allow tcp from 62.244.3.205 to 89.184.73.115 dst-port 21 keep-state
+#	${fwcmd} add allow tcp from 62.244.3.205 to 195.242.179.100
+#	${fwcmd} add allow tcp from 195.242.179.100 to 62.244.3.205
+##bioagro	
+#        ${fwcmd} add allow ip from 62.244.3.205  to 91.203.89.114 setup keep-state 
+
+#ftp
+#	${fwcmd} add allow tcp from any to 62.244.3.205 dst-port 21 keep-state
+#	${fwcmd} add allow tcp from any to 62.244.3.205 dst-port 20 keep-state
+
+#kraevid
+
+#	${fwcmd} add allow tcp from 62.244.3.205 to 195.69.87.150
+#	${fwcmd} add allow tcp from 195.69.87.150 to 62.244.3.205
+
+# Temporary Savinkov ?????????????????????????
+#	${fwcmd} add allow tcp from 193.239.73.230 to 62.244.3.205 
+#	${fwcmd} add allow tcp from 62.244.3.205  to 193.239.73.230  
+	
+#	${fwcmd} add deny tcp from 89.184.73.115 to 62.244.3.205 dst-port 80
+#	${fwcmd} add deny tcp from 89.184.73.115 to 62.244.3.205 dst-port 135
+#	${fwcmd} add deny tcp from 89.184.73.115 to 62.244.3.205 dst-port 445
+#	${fwcmd} add deny tcp from 89.184.73.115 to 62.244.3.205 dst-port 475
+#	${fwcmd} add deny tcp from 89.184.73.115 to 62.244.3.205 dst-port 1027
+#	${fwcmd} add deny tcp from 89.184.73.115 to 62.244.3.205 dst-port 1540
+#	${fwcmd} add deny tcp from 89.184.73.115 to 62.244.3.205 dst-port 1541
+#	${fwcmd} add deny tcp from 89.184.73.115 to 62.244.3.205 dst-port 2301
+#	${fwcmd} add deny tcp from 89.184.73.115 to 62.244.3.205 dst-port 3389
+#	${fwcmd} add deny tcp from 89.184.73.115 to 62.244.3.205 dst-port 8080
+#        ${fwcmd} add allow ip from 89.184.73.115 to 62.244.3.205	#promin ftp
+
+
+#	${fwcmd} add allow tcp from any to 62.244.3.205 dst-port 80
+
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 21
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 80
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 135
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 445
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 475
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 1027
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 1540
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 1541
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 2301
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 3389
+#	${fwcmd} add deny tcp from 77.120.96.245 to 62.244.3.205 dst-port 8080
+
+
+#        ${fwcmd} add allow ip from 77.120.96.245 to 62.244.3.205	#finance.ua kurs valut
+
+#	${fwcmd} add allow gre from any to 62.244.3.205
+# 25.110 port allow
+#	${fwcmd} add allow tcp from any to 62.244.3.205 dst-port 25,110
+#	${fwcmd} add allow tcp from 62.244.3.205 to any dst-port 25,110
+#
+#        ${fwcmd} add deny ip from any to 62.244.3.205
+#--- 1cterm end		
+	${fwcmd} add allow tcp from any to 62.244.3.207 dst-port 2222
+	${fwcmd} add allow tcp from any to 62.244.3.207 dst-port 2221
+	${fwcmd} add allow tcp from any to 62.244.3.207 dst-port 3389
+	${fwcmd} add deny tcp from any to 62.244.3.207
+	${fwcmd} add allow tcp from 62.244.3.207 to any
+#--- general antivirus liga
+
+#--- general antivirus liga stop
+
+
+
+
+#--- our rules
+#	${fwcmd} add deny tcp from any to ${mip} dst-port 25
+#	${fwcmd} add deny tcp from any to ${mip} dst-port 80
+	${fwcmd} add deny tcp from any to ${mip} dst-port 110
+	${fwcmd} add deny tcp from any to ${mip} dst-port 139
+	
+	${fwcmd} add deny tcp from any to ${mip} dst-port 443
+	${fwcmd} add deny tcp from any to ${mip} dst-port 445
+	${fwcmd} add deny tcp from any to ${mip} dst-port 3128
+#####	${fwcmd} add deny tcp from any to ${mip} dst-port 3306
+#--
+	${fwcmd} add deny tcp from any to ${msp} dst-port 80
+#	${fwcmd} add deny tcp from any to ${msp} dst-port 110
+	${fwcmd} add deny tcp from any to ${msp} dst-port 139
+	
+	${fwcmd} add deny tcp from any to ${msp} dst-port 443
+	${fwcmd} add deny tcp from any to ${msp} dst-port 445
+	${fwcmd} add deny tcp from any to ${msp} dst-port 3128
+#####	${fwcmd} add deny tcp from any to ${msp} dst-port 3306
+#--
+
+#---
+
+#---DHCP
+	${fwcmd} add allow udp from any to 62.244.3.192/26{211-249}
+	${fwcmd} add allow udp from 62.244.3.192/26{211-249} to any
+#---
+		
+
+
+#---demon.nchadvisors.kiev.ua
+#ftp
+	${fwcmd} add deny tcp from any to 62.244.3.201 dst-port 21
+	${fwcmd} add deny tcp from any to 62.244.3.201 dst-port 80
+	${fwcmd} add allow tcp from any 1024-65535 to 62.244.3.201 1024-65535
+	${fwcmd} add allow tcp from 62.244.3.201 to any
+	${fwcmd} add allow udp from 62.244.3.201 to any
+	${fwcmd} add allow tcp from any to 62.244.3.201 dst-port 25
+	${fwcmd} add allow tcp from any to 62.244.3.201 dst-port 53 
+	${fwcmd} add allow tcp from any to 62.244.3.201 dst-port 110
+	${fwcmd} add allow udp from any 53 to 62.244.3.201 dst-port 53 
+	${fwcmd} add allow udp from any 53 to 62.244.3.201 dst-port 1024-65535
+	${fwcmd} add allow udp from any 1024-65535 to 62.244.3.201 dst-port 53
+	${fwcmd} add allow tcp from 62.244.3.204 to 62.244.3.201 dst-port 143
+	${fwcmd} add deny tcp from any to 62.244.3.201 dst-port 143
+#62.244.3.200
+	${fwcmd} add deny tcp from any to 62.244.3.200 dst-port 21
+	${fwcmd} add deny tcp from any to 62.244.3.200 dst-port 22
+	${fwcmd} add deny tcp from any to 62.244.3.200 dst-port 110
+#---demon end
+
+
+#---nwserver start
+#    ${fwcmd} add allow udp from 62.244.3.196 to any
+#    ${fwcmd} add deny udp from any to 62.244.3.196
+#    ${fwcmd} add deny ip from any to 62.244.3.196
+    ${fwcmd} add drop all from any to 62.244.3.196
+    ${fwcmd} add drop all from 62.244.3.196 to any
+#---nwserver end
+
+
+#---nch start
+#    ${fwcmd} add allow udp from 62.244.3.195 to any
+#    ${fwcmd} add deny udp from any to 62.244.3.195
+
+#just 110
+    ${fwcmd} add allow tcp from any to 62.244.3.195 110
+    ${fwcmd} add allow tcp from 62.244.3.195 to any
+    ${fwcmd} add deny ip from any to 62.244.3.195
+#and deny
+
+#---nch end
+
+#--- voip start
+#        ${fwcmd} add allow all from 64.144.66.0/24 to 62.244.3.197 #nchcapital
+#	${fwcmd} add allow all from 62.244.3.197 to 64.144.66.0/24 
+#	${fwcmd} add allow all from 195.114.42.2 to 62.244.3.197 #nchriga.lv
+#	${fwcmd} add allow all from 62.244.3.197 to 195.114.42.2 
+#	${fwcmd} add allow all from 80.97.61.97 to 62.244.3.197 #nch romania
+#	${fwcmd} add allow all from 62.244.3.197 to 80.97.61.97
+#	${fwcmd} add allow all from 62.141.86.187 to 62.244.3.197 #nch ru agroterra
+#	${fwcmd} add allow all from 62.244.3.197 to 62.141.86.187
+#	${fwcmd} add deny all from any to 62.244.3.197						
+#--- voip end
+
+#mail.nchadvisors.kiev.ua
+    ${fwcmd} add allow tcp from any to 62.244.3.197 80
+    ${fwcmd} add allow tcp from any to 62.244.3.197 443
+    ${fwcmd} add allow tcp from 62.244.3.197 to any
+
+
+
+#---faxcom start
+${fwcmd} add allow ip from 64.144.66.0/24 to 62.244.3.193 #nchcapital
+${fwcmd} add allow ip from 195.114.53.196 to 62.244.3.193 #nchriga.lv
+
+${fwcmd} add allow udp from any 123 to 62.244.3.193 123
+${fwcmd} add allow udp from any 1024-65535 to 62.244.3.193 123
+${fwcmd} add deny ip from any to 62.244.3.193
+${fwcmd} add allow tcp from 62.244.3.193 to any
+${fwcmd} add allow udp from 62.244.3.193 to any
+#---faxcom end
+
+#---rpcblock start
+	${fwcmd} add deny tcp from any to 62.244.3.192/26 dst-port 135
+	${fwcmd} add deny udp from any to 62.244.3.192/26 dst-port 135
+#---rpcblock end
+
+#--udp test
+${fwcmd} add allow udp from 192.168.0.6 to any
+${fwcmd} add allow udp from any to 192.168.0.6
+
+#
+
+#---udp
+	${fwcmd} add pass udp from any to any 53 keep-state
+	${fwcmd} add pass udp from 192.168.0.250 to any
+	
+	##printers snmp
+	${fwcmd} add pass udp from 192.168.0.165 to any #Stroitelniy
+	${fwcmd} add pass udp from 192.168.0.166 to any #Buhgalteria
+	${fwcmd} add pass udp from 192.168.0.167 to any #Investors
+	${fwcmd} add pass udp from 192.168.0.168 to any #Selxoz
+	${fwcmd} add pass udp from 192.168.0.224 to any #Color
+	${fwcmd} add pass udp from 192.168.0.220 to any #XEROX
+	${fwcmd} add pass udp from 192.168.0.169 to any #Reception
+	${fwcmd} add pass udp from 192.168.0.171 to any #Samsung
+	##printers snmp end
+
+#---cant send 25, 587
+	${fwcmd} add deny all from 192.168.0.0/24 to any dst-port 25
+	${fwcmd} add deny all from 192.168.0.0/24 to any dst-port 587
+#---
+
+	
+	## Allow NTP queries out in the world
+	${fwcmd} add pass udp from any to any 123 keep-state
+	##
+
+	${fwcmd} add pass udp from 62.244.3.250 to any
+#	${fwcmd} add pass udp from ${mip} to any
+
+	${fwcmd} add allow udp from ${mip} to any
+	${fwcmd} add allow udp from any to ${mip} 
+
+	${fwcmd} add allow udp from ${msp} to any
+	${fwcmd} add allow udp from any to ${msp} 
+
+	${fwcmd} add allow udp from ${sce} to any
+	${fwcmd} add allow udp from any to ${sce} 
+
+	${fwcmd} add deny udp from any to any
+#---
+
+case ${firewall_type} in
+[Oo][Pp][Ee][Nn])
+	setup_loopback
+	${fwcmd} add 65000 pass all from any to any
+	;;
+
+[Cc][Ll][Ii][Ee][Nn][Tt])
+	############
+	# This is a prototype setup that will protect your system somewhat
+	# against people from outside your own network.
+	############
+
+	# set these to your network and netmask and ip
+	net="192.168.0.0"
+	mask="255.255.255.0"
+	ip="192.168.0.250"
+
+	setup_loopback
+
+	# Allow any traffic to or from my own net.
+	 add pass all from ${ip} to ${net}:${mask}
+	${fwcmd} add pass all from ${net}:${mask} to ${ip}
+
+	# Allow TCP through if setup succeeded
+	${fwcmd} add pass tcp from any to any established
+
+	# Allow IP fragments to pass through
+	${fwcmd} add pass all from any to any frag
+
+	# Allow setup of incoming email
+	${fwcmd} add pass tcp from any to ${ip} 25 setup
+
+	# Allow setup of outgoing TCP connections only
+	${fwcmd} add pass tcp from ${ip} to any setup
+
+	# Disallow setup of all other TCP connections
+	${fwcmd} add deny tcp from any to any setup
+
+	# Allow DNS queries out in the world
+	${fwcmd} add pass udp from ${ip} to any 53 keep-state
+
+	# Allow NTP queries out in the world
+	${fwcmd} add pass udp from ${ip} to any 123 keep-state
+
+	# Everything else is denied by default, unless the
+	# IPFIREWALL_DEFAULT_TO_ACCEPT option is set in your kernel
+	# config file.
+	;;
+
+[Ss][Ii][Mm][Pp][Ll][Ee])
+	############
+	# This is a prototype setup for a simple firewall.  Configure this
+	# machine as a DNS and NTP server, and point all the machines
+	# on the inside at this machine for those services.
+	############
+
+	# set these to your outside interface network and netmask and ip
+	oif="bge0"
+	onet="62.244.26.202"
+	omask="255.255.255.252"
+	oip="62.244.26.202"
+
+	# set these to your inside interface network and netmask and ip
+	iif="xl0"
+	inet="62.244.3.192"
+	imask="255.255.255.192"
+	iip="62.244.3.252"
+
+	setup_loopback
+
+	# Stop spoofing
+	${fwcmd} add deny all from ${inet}:${imask} to any in via ${oif}
+	${fwcmd} add deny all from ${onet}:${omask} to any in via ${iif}
+
+	# Stop RFC1918 nets on the outside interface
+	${fwcmd} add deny all from any to 10.0.0.0/8 via ${oif}
+	${fwcmd} add deny all from any to 172.16.0.0/12 via ${oif}
+	${fwcmd} add deny all from any to 192.168.0.0/16 via ${oif}
+
+	# Stop draft-manning-dsua-03.txt (1 May 2000) nets (includes RESERVED-1,
+	# DHCP auto-configuration, NET-TEST, MULTICAST (class D), and class E)
+	# on the outside interface
+	${fwcmd} add deny all from any to 0.0.0.0/8 via ${oif}
+	${fwcmd} add deny all from any to 169.254.0.0/16 via ${oif}
+	${fwcmd} add deny all from any to 192.0.2.0/24 via ${oif}
+	${fwcmd} add deny all from any to 224.0.0.0/4 via ${oif}
+	${fwcmd} add deny all from any to 240.0.0.0/4 via ${oif}
+
+	# Network Address Translation.  This rule is placed here deliberately
+	# so that it does not interfere with the surrounding address-checking
+	# rules.  If for example one of your internal LAN machines had its IP
+	# address set to 192.0.2.1 then an incoming packet for it after being
+	# translated by natd(8) would match the `deny' rule above.  Similarly
+	# an outgoing packet originated from it before being translated would
+	# match the `deny' rule below.
+	case ${natd_enable} in
+	[Yy][Ee][Ss])
+		if [ -n "${natd_interface}" ]; then
+			${fwcmd} add divert natd all from any to any via ${natd_interface}
+		fi
+		;;
+	esac
+
+	# Stop RFC1918 nets on the outside interface
+	${fwcmd} add deny all from 10.0.0.0/8 to any via ${oif}
+	${fwcmd} add deny all from 172.16.0.0/12 to any via ${oif}
+	${fwcmd} add deny all from 192.168.0.0/16 to any via ${oif}
+
+	# Stop draft-manning-dsua-03.txt (1 May 2000) nets (includes RESERVED-1,
+	# DHCP auto-configuration, NET-TEST, MULTICAST (class D), and class E)
+	# on the outside interface
+	${fwcmd} add deny all from 0.0.0.0/8 to any via ${oif}
+	${fwcmd} add deny all from 169.254.0.0/16 to any via ${oif}
+	${fwcmd} add deny all from 192.0.2.0/24 to any via ${oif}
+	${fwcmd} add deny all from 224.0.0.0/4 to any via ${oif}
+	${fwcmd} add deny all from 240.0.0.0/4 to any via ${oif}
+
+	# Allow TCP through if setup succeeded
+	${fwcmd} add pass tcp from any to any established
+
+	# Allow IP fragments to pass through
+	${fwcmd} add pass all from any to any frag
+
+	# Allow setup of incoming email
+	${fwcmd} add pass tcp from any to ${oip} 25 setup
+
+	# Allow access to our DNS
+	${fwcmd} add pass tcp from any to ${oip} 53 setup
+	${fwcmd} add pass udp from any to ${oip} 53
+	${fwcmd} add pass udp from ${oip} 53 to any
+
+	# Allow access to our WWW
+	${fwcmd} add pass tcp from any to ${oip} 80 setup
+
+	# Reject&Log all setup of incoming connections from the outside
+	${fwcmd} add deny log tcp from any to any in via ${oif} setup
+
+	# Allow setup of any other TCP connection
+	${fwcmd} add pass tcp from any to any setup
+
+	# Allow DNS queries out in the world
+	${fwcmd} add pass udp from ${oip} to any 53 keep-state
+
+	# Allow NTP queries out in the world
+	${fwcmd} add pass udp from ${oip} to any 123 keep-state
+
+	# Everything else is denied by default, unless the
+	# IPFIREWALL_DEFAULT_TO_ACCEPT option is set in your kernel
+	# config file.
+	;;
+
+[Cc][Ll][Oo][Ss][Ee][Dd])
+	setup_loopback
+	;;
+[Uu][Nn][Kk][Nn][Oo][Ww][Nn])
+	;;
+*)
+	if [ -r "${firewall_type}" ]; then
+		${fwcmd} ${firewall_flags} ${firewall_type}
+	fi
+	;;
+esac

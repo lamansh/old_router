@@ -1,0 +1,36 @@
+*** squid.conf	Wed Nov 12 10:55:36 2014
+--- squid_reserv.conf	Wed Nov 12 11:08:19 2014
+***************
+*** 2605,2611 ****
+  # And finally deny all other access to this proxy
+  #acl auth proxy_auth REQUIRED
+  #acl ournet src 192.168.0.0/24 62.244.3.192/26 192.168.100.0/24
+! acl ournet src 62.244.3.192/26 192.168.100.0/24
+  #acl some src 192.168.0.2 192.168.0.15 192.168.0.119 192.168.0.153 192.168.0.121
+  acl all src 0.0.0.0/0.0.0.0
+  #acl google dst "/usr/local/etc/squid/google_ip"
+--- 2605,2611 ----
+  # And finally deny all other access to this proxy
+  #acl auth proxy_auth REQUIRED
+  #acl ournet src 192.168.0.0/24 62.244.3.192/26 192.168.100.0/24
+! acl ournet src 62.244.3.192/26 192.168.100.0/24 192.168.0.0/24
+  #acl some src 192.168.0.2 192.168.0.15 192.168.0.119 192.168.0.153 192.168.0.121
+  acl all src 0.0.0.0/0.0.0.0
+  #acl google dst "/usr/local/etc/squid/google_ip"
+***************
+*** 2628,2634 ****
+  ###for nagios http check (c) Roman
+  #http_access allow localhost 
+  http_access allow ournet
+! http_access allow auth
+  http_access deny all
+  
+  
+--- 2628,2634 ----
+  ###for nagios http check (c) Roman
+  #http_access allow localhost 
+  http_access allow ournet
+! #http_access allow auth
+  http_access deny all
+  
+  

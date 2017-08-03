@@ -1,0 +1,39 @@
+#!/usr/local/bin/bash
+if [ $# -ne 1 ]
+    then
+    echo "USAGE: 1 -swith to GOLDEN, 2 -swith to Lucky"
+    exit
+fi    
+
+if [[ "$1" -ne 1 && "$1" -ne 2 ]]
+    then
+    echo "USAGE: 1 -swith to GOLDEN, 2 -swith to Lucky"
+    exit
+fi
+    
+case "$1" in
+1) echo "Switching to GOLDEN" 
+    /sbin/ifconfig xl0 add 85.223.215.179 netmask 255.255.255.248 alias
+    /sbin/ipfw add 00003 fwd 85.223.215.179,3128 tcp from 62.244.3.192/26{215-245} to any dst-port 80
+    /sbin/ipfw add 00004 fwd 192.168.0.250,3128 tcp from 192.168.0.0/24{10-249} to any dst-port 80
+    /sbin/ipfw add 00005 skipto 50 ip from 62.244.3.192/26{215-245} to not 192.168.0.0/24, 192.168.15.0/24, 62.244.3.192/26 out
+    /sbin/ipfw add 00006 skipto 50 ip from 192.168.0.0/24{2-140} to not 192.168.0.0/24, 192.168.15.0/24, 62.244.3.192/26 out
+#    /sbin/ipfw add 00004 skipto 50 ip from 192.168.0.0/24{2-140}, 192.168.100.0/24{1,2} to not 192.168.0.0/24, 192.168.15.0/24, 62.244.3.192/26 out    
+#    /sbin/ipfw add 00003 fwd 192.168.0.254 ip from 62.244.3.192/26{215-245} to not 192.168.0.0/24, 192.168.15.0/24,62.244.3.192/26 out
+#    /sbin/ipfw add 00004 fwd 192.168.0.254 ip from 192.168.0.0/24{2-140} to not 192.168.0.0/24, 192.168.15.0/24,62.244.3.192/26 out
+
+    /sbin/route change default 85.223.215.177
+    /usr/bin/patch /usr/local/etc/squid/squid.conf -f -i /home/sharov/patchsquid/squid.patch
+    /usr/local/etc/rc.d/squid restart
+    ;;
+2) echo "Switching to Lucky"
+    /sbin/ifconfig xl0 -alias 85.223.215.179
+    /sbin/ipfw delete 00003
+    /sbin/ipfw delete 00004
+    /sbin/ipfw delete 00005
+    /sbin/ipfw delete 00006
+    /sbin/route add default 62.244.26.201
+    /usr/bin/patch /usr/local/etc/squid/squid.conf -R -f -i /home/sharov/patchsquid/squid.patch
+    /usr/local/etc/rc.d/squid restart
+    ;;
+ esac

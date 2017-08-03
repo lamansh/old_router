@@ -1,0 +1,14 @@
+#!/usr/local/bin/bash
+if [ $1 == restart ]
+ then 
+    /usr/local/etc/rc.d/spmd restart
+    /usr/local/etc/rc.d/iked restart
+fi    
+
+if [ $1 == flush ]
+ then
+    /sbin/setkey -F
+else
+ echo "usage: 'restart' - restart spmd and iked, 'flush' - flush ike key"
+    
+fi 
